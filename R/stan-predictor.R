@@ -202,7 +202,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
       }
       if (family != "gaussian") {
         str_add(out$par) <- glue(
-          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] = URaw_{family};\n"
+          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family};\n"
         )
       }
     }

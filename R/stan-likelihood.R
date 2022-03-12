@@ -98,10 +98,11 @@ stan_log_lik_general <- function(ll, bterms, data, threads, normalize, copula_fa
   stopifnot(is.sdist(ll))
   require_n <- grepl(stan_nn_regex(), ll$args)
   n <- str_if(require_n, stan_nn(threads), stan_slice(threads))
-  lpdf <- stan_log_lik_lpdf_name(bterms, normalize, dist = ll$dist)
+  lpdf <- stan_log_lik_lpdf_name(bterms, normalize, dist = ll$dist, copula = !is.null(copula_families))
   Y <- stan_log_lik_Y_name(bterms, copula_families)
   tr <- stan_log_lik_trunc(ll, bterms, data, resp = resp, threads = threads)
-  glue("{tp()}{ll$dist}_{lpdf}({Y}{resp}{n}{ll$shift} | {ll$args}){tr};\n")
+  bar <- ifelse(!is.null(copula_families), ",", "|")
+  glue("{tp()}{ll$dist}_{lpdf}({Y}{resp}{n}{ll$shift} {bar} {ll$args}){tr};\n")
 }
 
 # censored likelihood in Stan language
@@ -232,7 +233,10 @@ stan_log_lik_trunc <- function(ll, bterms, data, threads, resp = "",
   out
 }
 
-stan_log_lik_lpdf_name <- function(bterms, normalize, dist = NULL) {
+stan_log_lik_lpdf_name <- function(bterms, normalize, dist = NULL, copula = FALSE) {
+  if (copula) {
+    return("")
+  }
   if (!is.null(dist) && !normalize) {
     # some Stan lpdfs or lpmfs only exist as normalized versions
     always_normalized <- always_normalized(bterms)

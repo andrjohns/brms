@@ -117,6 +117,9 @@ stan_global_defs <- function(bterms, prior, ranef, threads) {
   if (use_threading(threads)) {
     str_add(out$fun) <- "  #include 'fun_sequence.stan'\n"
   }
+  if (!is.null(bterms$copula)) {
+    str_add(out$fun) <- "  #include 'fun_gaussian_copula.stan'\n"
+  }
   out
 }
 
