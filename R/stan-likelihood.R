@@ -12,7 +12,7 @@ stan_log_lik <- function(x, ...) {
 # @param ptheta are mixing proportions predicted?
 #' @export
 stan_log_lik.family <- function(x, bterms, data, threads, normalize,
-                                mix = "", ptheta = FALSE, ...) {
+                                mix = "", ptheta = FALSE, copula_families = NULL, ...) {
   stopifnot(is.brmsterms(bterms))
   stopifnot(length(mix) == 1L)
   bterms$family <- x
@@ -22,7 +22,7 @@ stan_log_lik.family <- function(x, bterms, data, threads, normalize,
   log_lik_fun <- paste0("stan_log_lik_", prepare_family(bterms)$fun)
   ll <- do_call(log_lik_fun, log_lik_args)
   # incorporate other parts into the likelihood
-  args <- nlist(ll, bterms, data, resp, threads, normalize, mix, ptheta)
+  args <- nlist(ll, bterms, data, resp, threads, normalize, mix, ptheta, copula_families)
   if (nzchar(mix)) {
     out <- do_call(stan_log_lik_mix, args)
   } else if (is.formula(bterms$adforms$cens)) {
@@ -94,12 +94,12 @@ stan_log_lik.mvbrmsterms <- function(x, ...) {
 }
 
 # default likelihood in Stan language
-stan_log_lik_general <- function(ll, bterms, data, threads, normalize, resp = "", ...) {
+stan_log_lik_general <- function(ll, bterms, data, threads, normalize, copula_families, resp = "", ...) {
   stopifnot(is.sdist(ll))
   require_n <- grepl(stan_nn_regex(), ll$args)
   n <- str_if(require_n, stan_nn(threads), stan_slice(threads))
   lpdf <- stan_log_lik_lpdf_name(bterms, normalize, dist = ll$dist)
-  Y <- stan_log_lik_Y_name(bterms)
+  Y <- stan_log_lik_Y_name(bterms, copula_families)
   tr <- stan_log_lik_trunc(ll, bterms, data, resp = resp, threads = threads)
   glue("{tp()}{ll$dist}_{lpdf}({Y}{resp}{n}{ll$shift} | {ll$args}){tr};\n")
 }
@@ -249,8 +249,20 @@ stan_log_lik_lpdf_name <- function(bterms, normalize, dist = NULL) {
   out
 }
 
-stan_log_lik_Y_name <- function(bterms) {
-  ifelse(is.formula(bterms$adforms$mi), "Yl", "Y")
+stan_log_lik_Y_name <- function(bterms, copula_families) {
+  if (is.null(copula_families)) {
+    ifelse(is.formula(bterms$adforms$mi), "Yl", "Y")
+  } else {
+    marginals <- sapply(copula_families, function(family) {
+      outcome <- glue(ifelse(family == "binomial", "Y_{family}, trials_{family}", "Y_{family}"))
+      if (family == "gaussian") {
+        "normal_marginal(Y_gaussian, Mu_gaussian, sigma)"
+      } else {
+        glue("{family}_marginal({outcome}, Mu_{family}, URaw_{family})")
+      }
+    })
+    paste0("{", paste0(marginals, collapse = ","), "}")
+  }
 }
 
 # prepare names of distributional parameters
@@ -362,6 +374,10 @@ stan_log_lik_gaussian_mv <- function(bterms, resp = "", mix = "", ...) {
   p <- list(Mu = paste0("Mu", if (reqn) "[n]"))
   p$LSigma <- paste0("LSigma", if (bterms$sigma_pred) "[n]")
   sdist("multi_normal_cholesky", p$Mu, p$LSigma)
+}
+
+stan_log_lik_copula_mv <- function(bterms, resp = "", mix = "", ...) {
+  sdist("centered_gaussian_copula_cholesky", "Lrescor")
 }
 
 stan_log_lik_gaussian_time <- function(bterms, resp = "", mix = "", ...) {

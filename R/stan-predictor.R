@@ -142,13 +142,15 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
   # stopifnot(family %in% c("gaussian", "student"))
   resp <- x$responses
   nresp <- length(resp)
-  str_add(out$model_def) <- glue(
-    "  // multivariate predictor array\n",
-    "  vector[nresp] Mu[N];\n"
-  )
-  str_add(out$model_comp_mvjoin) <- glue(
-    "    Mu[n] = {stan_vector(glue('mu_{resp}[n]'))};\n"
-  )
+  if (is.null(x$copula)) {
+    str_add(out$model_def) <- glue(
+      "  // multivariate predictor array\n",
+      "  vector[nresp] Mu[N];\n"
+    )
+    str_add(out$model_comp_mvjoin) <- glue(
+      "    Mu[n] = {stan_vector(glue('mu_{resp}[n]'))};\n"
+    )
+  }
   str_add(out$data) <- glue(
     "  int<lower=1> nresp;  // number of responses\n",
     "  int nrescor;  // number of residual correlations\n"
@@ -162,7 +164,9 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
   # For copula models, n
   if (!is.null(x$copula)) {
     # Group responses by family
-    for (family in c("gaussian", "poisson", "binomial")) {
+    el_fams <- c("gaussian", "poisson", "binomial")
+    current_families <- el_fams[el_fams %in% family_names(x)]
+    for (family in current_families) {
       fam_resp = x$terms[family_names(x) == family]
       n_fam_resp = length(fam_resp)
       if (family == "gaussian") {
@@ -178,17 +182,28 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         str_add(out$tdata_def) <- glue(
           "  int trials_{family}[N, {n_fam_resp}];  // response array\n"
         )
-      for (i in 1:n_fam_resp) {
-        str_add(out$tdata_comp) <- glue(
-          "  trials_{family}[ : , {i}] = trials_{fam_resp[[i]]$resp};\n"
-        )
-      }
+        for (i in 1:n_fam_resp) {
+          str_add(out$tdata_comp) <- glue(
+            "  trials_{family}[ : , {i}] = trials_{fam_resp[[i]]$resp};\n"
+          )
+        }
       }
       for (i in 1:n_fam_resp) {
         str_add(out$tdata_comp) <- glue(
           "  Y_{family}[ : , {i}] = Y_{fam_resp[[i]]$resp};\n"
         )
+        str_add(out$model_def) <- glue(
+          "  // multivariate predictor array\n",
+          "  matrix[N, {n_fam_resp}] Mu_{family};\n",
+          "  matrix[N, {n_fam_resp}] Marginal_{family}[2];\n"
+        )
+        str_add(out$model_comp_mvjoin) <- glue(
+          "  Mu_{family}[ : , {i}] = mu_{fam_resp[[i]]$resp};\n"
+        )
       }
+      str_add(out$par) <- glue(
+        "  matrix<lower=0, upper=1>[N, {n_fam_resp}] = URaw_{family};\n"
+      )
     }
   }
   if (is.null(x$copula)) {
@@ -256,22 +271,26 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
       )
     }
   } else {
+    sigma <- sigma[sigma != ""]
+    ngaus <- sum(family_names(x) == "gaussian")
     str_add(out$model_def) <- glue(
-      "  vector[nresp] sigma = {stan_vector(sigma)};\n"
+      "  vector[{ngaus}] sigma = {stan_vector(sigma)};\n"
     )
-    if (family == "gaussian") {
-      str_add(out$model_def) <- glue(
-        "  // cholesky factor of residual covariance matrix\n",
-        "  matrix[nresp, nresp] LSigma = ",
-        "diag_pre_multiply(sigma, Lrescor);\n"
-      )
-    } else if (family == "student") {
-      str_add(out$model_def) <- glue(
-        "  // residual covariance matrix\n",
-        "  matrix[nresp, nresp] Sigma = ",
-        "multiply_lower_tri_self_transpose(",
-        "diag_pre_multiply(sigma, Lrescor));\n"
-      )
+    if (is.null(x$copula)) {
+      if (family == "gaussian") {
+        str_add(out$model_def) <- glue(
+          "  // cholesky factor of residual covariance matrix\n",
+          "  matrix[nresp, nresp] LSigma = ",
+          "diag_pre_multiply(sigma, Lrescor);\n"
+        )
+      } else if (family == "student") {
+        str_add(out$model_def) <- glue(
+          "  // residual covariance matrix\n",
+          "  matrix[nresp, nresp] Sigma = ",
+          "multiply_lower_tri_self_transpose(",
+          "diag_pre_multiply(sigma, Lrescor));\n"
+        )
+      }
     }
   }
   str_add(out$gen_def) <- glue(
@@ -281,23 +300,26 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     "  vector<lower=-1,upper=1>[nrescor] rescor;\n"
   )
   str_add(out$gen_comp) <- stan_cor_gen_comp("rescor", "nresp")
-  out$model_comp_mvjoin <- paste0(
-    "  // combine univariate parameters\n",
-    "  for (n in 1:N) {\n",
-    stan_nn_def(threads),
-    out$model_comp_mvjoin,
-    "  }\n"
-  )
-  if (isTRUE(nzchar(out$model_no_pll_comp_mvjoin))) {
-    out$model_no_pll_comp_mvjoin <- paste0(
+  if (is.null(x$copula)) {
+    out$model_comp_mvjoin <- paste0(
       "  // combine univariate parameters\n",
       "  for (n in 1:N) {\n",
-      out$model_no_pll_comp_mvjoin,
+      stan_nn_def(threads),
+      out$model_comp_mvjoin,
       "  }\n"
     )
+    if (isTRUE(nzchar(out$model_no_pll_comp_mvjoin))) {
+      out$model_no_pll_comp_mvjoin <- paste0(
+        "  // combine univariate parameters\n",
+        "  for (n in 1:N) {\n",
+        out$model_no_pll_comp_mvjoin,
+        "  }\n"
+      )
+    }
   }
   out$model_log_lik <- stan_log_lik(
-    x, threads = threads, normalize = normalize, ...
+    x, threads = threads, normalize = normalize, 
+    copula_families = current_families, ...
   )
   list(out)
 }
