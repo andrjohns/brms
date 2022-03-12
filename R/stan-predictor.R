@@ -194,16 +194,17 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         )
         str_add(out$model_def) <- glue(
           "  // multivariate predictor array\n",
-          "  matrix[N, {n_fam_resp}] Mu_{family};\n",
-          "  matrix[N, {n_fam_resp}] Marginal_{family}[2];\n"
+          "  matrix[N, {n_fam_resp}] Mu_{family};\n"
         )
         str_add(out$model_comp_mvjoin) <- glue(
           "  Mu_{family}[ : , {i}] = mu_{fam_resp[[i]]$resp};\n"
         )
       }
-      str_add(out$par) <- glue(
-        "  matrix<lower=0, upper=1>[N, {n_fam_resp}] = URaw_{family};\n"
-      )
+      if (family != "gaussian") {
+        str_add(out$par) <- glue(
+          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] = URaw_{family};\n"
+        )
+      }
     }
   }
   if (is.null(x$copula)) {
