@@ -589,7 +589,7 @@ is.btnl <- function(x) {
 as.brmsterms <- function(x) {
   stopifnot(is.mvbrmsterms(x), x$rescor)
   families <- ulapply(x$terms, function(y) y$family$family)
-  stopifnot(all(families == families[1]))
+  #stopifnot(all(families == families[1]))
   out <- structure(list(), class = "brmsterms")
   out$family <- structure(
     list(family = paste0(families[1], "_mv"), link = "identity"),
