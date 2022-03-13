@@ -119,9 +119,10 @@ stan_global_defs <- function(bterms, prior, ranef, threads) {
   }
   if (!is.null(bterms$copula)) {
     str_add(out$fun) <- "  #include 'copula/LICENSE.stan'\n"
+    str_add(out$fun) <- "  #include 'fun_chol2inv.stan'\n"
     str_add(out$fun) <- "  #include 'copula/fun_multi_normal_cholesky_copula.stan'\n"
     str_add(out$fun) <- "  #include 'copula/fun_centered_gaussian_copula_cholesky.stan'\n"
-    for (family in families) {
+    for (family in unique(families)) {
       family <- ifelse(family == "gaussian", "normal", family)
       str_add(out$fun) <- glue("  #include 'copula/fun_{family}_marginal.stan'\n")
     }

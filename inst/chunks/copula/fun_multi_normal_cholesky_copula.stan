@@ -13,6 +13,6 @@
   real multi_normal_cholesky_copula_lpdf(matrix U, matrix L) {
     int N = rows(U);
     int J = cols(U);
-    matrix[J, J] Gammainv = chol2inv(L);
+    matrix[J, J] Gammainv = chol2inv2(L);
     return -N * sum(log(diagonal(L))) - 0.5 * sum(add_diag(Gammainv, -1.0) .* crossprod(U));
   }
