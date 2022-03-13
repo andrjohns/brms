@@ -1,4 +1,4 @@
-/**
+  /**
   * Multivariate Normal Copula log density (Cholesky parameterisation)
   *
   * See https://github.com/spinkney/helpful_stan_functions for

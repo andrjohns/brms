@@ -118,6 +118,7 @@ stan_global_defs <- function(bterms, prior, ranef, threads) {
     str_add(out$fun) <- "  #include 'fun_sequence.stan'\n"
   }
   if (!is.null(bterms$copula)) {
+    str_add(out$fun) <- "  #include 'copula/LICENSE.stan'\n"
     str_add(out$fun) <- "  #include 'copula/fun_multi_normal_cholesky_copula.stan'\n"
     str_add(out$fun) <- "  #include 'copula/fun_centered_gaussian_copula_cholesky.stan'\n"
     for (family in families) {

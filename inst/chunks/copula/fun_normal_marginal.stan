@@ -1,4 +1,4 @@
-/**
+  /**
   * Normal marginal
   *
   * Standardized normal marginal for mixed continuous-discrete Gaussian
