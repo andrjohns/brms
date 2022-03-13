@@ -163,10 +163,15 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
   }
   # For copula models, n
   if (!is.null(x$copula)) {
+    str_add(out$tdata_def) <- glue(
+      "  int Outcome_Order[{length(x$terms)}];  // response array\n"
+    )
     # Group responses by family
     el_fams <- c("gaussian", "poisson", "binomial")
     current_families <- el_fams[el_fams %in% family_names(x)]
-    for (family in current_families) {
+    responses <- sapply(x$terms, function(bterms) { bterms$resp})
+    pos = 1
+    for (family in unique(current_families)) {
       fam_resp = x$terms[family_names(x) == family]
       n_fam_resp = length(fam_resp)
       if (family == "gaussian") {
@@ -188,17 +193,21 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
           )
         }
       }
+      str_add(out$model_def) <- glue(
+        "  // multivariate predictor array\n",
+        "  matrix[N, {n_fam_resp}] Mu_{family};\n"
+      )
       for (i in 1:n_fam_resp) {
         str_add(out$tdata_comp) <- glue(
-          "  Y_{family}[ : , {i}] = Y_{fam_resp[[i]]$resp};\n"
+          "  Outcome_Order[{pos}] = {which(responses == fam_resp[[i]]$resp)};\n"
         )
-        str_add(out$model_def) <- glue(
-          "  // multivariate predictor array\n",
-          "  matrix[N, {n_fam_resp}] Mu_{family};\n"
+        str_add(out$tdata_comp) <- glue(
+          "  Y_{family}[ : , {i}] = Y_{fam_resp[[i]]$resp};\n"
         )
         str_add(out$model_comp_mvjoin) <- glue(
           "  Mu_{family}[ : , {i}] = mu_{fam_resp[[i]]$resp};\n"
         )
+        pos <- pos + 1
       }
       if (family != "gaussian") {
         str_add(out$par) <- glue(
@@ -319,7 +328,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     }
   }
   out$model_log_lik <- stan_log_lik(
-    x, threads = threads, normalize = normalize, 
+    x, threads = threads, normalize = normalize,
     copula_families = current_families, ...
   )
   list(out)

@@ -7,7 +7,7 @@
   * @param L Cholesky Factor Correlation
   * @return Real log-probability
   */
-  real centered_gaussian_copula_cholesky_(matrix[,] marginals, matrix L) {
+  real centered_gaussian_copula_cholesky_(matrix[,] marginals, matrix L, int[] order) {
     // Extract dimensions of final outcome matrix
     int N = rows(marginals[1][1]);
     int J = rows(L);
@@ -28,5 +28,5 @@
     }
 
     // Return the sum of the log-probability for copula outcomes and jacobian adjustments
-    return multi_normal_cholesky_copula_lpdf(U | L) + adj;
+    return multi_normal_cholesky_copula_lpdf(U[ : , order] | L) + adj;
   }
