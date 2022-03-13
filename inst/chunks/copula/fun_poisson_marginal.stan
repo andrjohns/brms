@@ -19,16 +19,17 @@
     int N = rows(mu_glm);
     int J = cols(mu_glm);
     matrix[N, J] mu_glm_exp = exp(mu_glm);
-    array[2] matrix[N, J] rtn;
+    matrix[N, J] rtn[2];
 
     for (j in 1 : J) {
       for (n in 1 : N) {
         real Ubound = poisson_cdf(y[n, j], mu_glm_exp[n, j]);
         real Lbound = 0;
+        real UmL;
         if (y[n, j] > 0) {
           Lbound = poisson_cdf(y[n, j] - 1, mu_glm_exp[n, j]);
         }
-        real UmL = Ubound - Lbound;
+        UmL = Ubound - Lbound;
         rtn[1][n, j] = inv_Phi(Lbound + UmL * u_raw[n, j]);
         rtn[2][n, j] = log(UmL);
       }

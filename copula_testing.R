@@ -10,4 +10,4 @@ mb <- bf(n | trials(d) ~ 1, family = binomial())
 
 mod <- mn + mp + mb + set_rescor(rescor = TRUE, copula = "gaussian")
 
-make_stancode(mod, data = bdata_bin)
+t <- brm(mod, data = bdata_bin)

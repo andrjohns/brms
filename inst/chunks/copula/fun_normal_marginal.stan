@@ -18,7 +18,7 @@
   matrix[] normal_marginal(matrix y, matrix mu_glm, vector sigma) {
     int N = rows(mu_glm);
     int J = cols(mu_glm);
-    array[2] matrix[N, J] rtn;
+    matrix[N, J] rtn[2];
     // Initialise the jacobian adjustments to zero, as vectorised lpdf will be used
     rtn[2] = rep_matrix(0, N, J);
 
