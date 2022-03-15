@@ -59,6 +59,7 @@ jobs:
       - name: Build cmdstan
         run: |
           tinytex::install_tinytex()
+          tinytex::pdflatex('vignettes/brms_multilevel.ltx')
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
           dir.create("~/.R")
