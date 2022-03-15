@@ -54,12 +54,11 @@ jobs:
             ape
             https://github.com/stan-dev/cmdstanr
             RcppEigen
-            tinytex
+
+      - uses: r-lib/actions/setup-tinytex@v2
 
       - name: Build cmdstan
         run: |
-          tinytex::install_tinytex()
-          tinytex::tlmgr_install("pdflatex")
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
           dir.create("~/.R")
