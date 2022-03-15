@@ -43,6 +43,7 @@ jobs:
         with:
           dependencies: NA
           extra-packages: |
+            R.rsp
             knitr
             rcmdcheck
 
