@@ -15,7 +15,7 @@
   * @return 2D array of matrices containing the random variables
   *         and jacobian adjustments
   */
-  matrix[] normal_marginal(matrix y, matrix mu_glm, vector sigma) {
+  matrix[] gaussian_marginal(matrix y, matrix mu_glm, vector sigma) {
     int N = rows(mu_glm);
     int J = cols(mu_glm);
     matrix[N, J] rtn[2];

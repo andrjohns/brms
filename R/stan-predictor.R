@@ -166,13 +166,24 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     str_add(out$tdata_def) <- glue(
       "  int Outcome_Order[{length(x$terms)}];  // response array\n"
     )
+    str_add(out$model_def) <- glue(
+      "  matrix[N, {length(x$terms)}] Y;  // response array\n"
+    )
     # Group responses by family
     el_fams <- c("gaussian", "poisson", "binomial")
     current_families <- el_fams[el_fams %in% family_names(x)]
     responses <- sapply(x$terms, function(bterms) { bterms$resp})
     pos = 1
+    u_pos = 1
     for (family in unique(current_families)) {
       fam_resp = x$terms[family_names(x) == family]
+      if (family == "gaussian") {
+        args <- c("Y_gaussian", "Mu_gaussian", "sigma")
+      } else if (family == "binomial") {
+        args <- c("Y_binomial", "trials_binomial", "Mu_binomial", "URaw_binomial")
+      } else {
+        args <- paste0(c("Y", "Mu", "URaw"), "_", family)
+      }
       n_fam_resp = length(fam_resp)
       if (family == "gaussian") {
         str_add(out$tdata_def) <- glue(
@@ -197,6 +208,10 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         "  // multivariate predictor array\n",
         "  matrix[N, {n_fam_resp}] Mu_{family};\n"
       )
+      str_add(out$model_def) <- glue(
+        "  // multivariate predictor array\n",
+        "  matrix[N, {n_fam_resp}] {family}_marginals[2];\n"
+      )
       for (i in 1:n_fam_resp) {
         str_add(out$tdata_comp) <- glue(
           "  Outcome_Order[{pos}] = {which(responses == fam_resp[[i]]$resp)};\n"
@@ -209,6 +224,12 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         )
         pos <- pos + 1
       }
+      str_add(out$model_comp_mvjoin) <- glue(
+        "  {family}_marginals = {family}_marginal({paste0(args, collapse=',')});\n",
+        "  Y[ : , {u_pos}:{u_pos + n_fam_resp - 1}] = {family}_marginals[1];\n",
+        "  target += sum({family}_marginals[2]);\n"
+      )
+      u_pos <- u_pos + n_fam_resp
       if (family != "gaussian") {
         str_add(out$par) <- glue(
           "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family};\n"
@@ -328,8 +349,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     }
   }
   out$model_log_lik <- stan_log_lik(
-    x, threads = threads, normalize = normalize,
-    copula_families = current_families, ...
+    x, threads = threads, normalize = normalize, ...
   )
   list(out)
 }
