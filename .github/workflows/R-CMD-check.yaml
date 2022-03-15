@@ -55,10 +55,15 @@ jobs:
             https://github.com/stan-dev/cmdstanr
             RcppEigen
 
-      - name: Build
+      - name: Build cmdstan
         run: |
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
+          dir.create(".R")
+          flags <- c("CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations",
+                     "CXX14FLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations")
+          cat(flags, file = "~/.R/Makevars")
+          cat(flags, file = "~/.R/Makevars.win")
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v1
