@@ -39,16 +39,15 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
-      - name: Install cmdstanr
-        run: |
-          install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/",
-                                                 "https://cran.rstudio.com/"))
-          cmdstanr::install_cmdstan(cores = parallel::detectCores())
-        shell: Rscript {0}
-
-
       - uses: r-lib/actions/setup-r-dependencies@v1
         with:
-          extra-packages: rcmdcheck
+          extra-packages: |
+            rcmdcheck
+            stan-dev/cmdstanr
+
+      - name: Install cmdstan
+        run: |
+          cmdstanr::install_cmdstan(cores = parallel::detectCores())
+        shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v1
