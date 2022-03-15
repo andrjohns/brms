@@ -57,6 +57,7 @@ jobs:
 
       - name: Build
         run: |
+          cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
         shell: Rscript {0}
 
