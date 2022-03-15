@@ -47,5 +47,11 @@ jobs:
             knitr
             rcmdcheck
             rmarkdown
+            lme4
+            mice
+            BH
+            MCMCglmm
+            ape
+            https://github.com/stan-dev/cmdstanr
 
       - uses: r-lib/actions/check-r-package@v1
