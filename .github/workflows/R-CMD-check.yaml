@@ -53,5 +53,11 @@ jobs:
             MCMCglmm
             ape
             https://github.com/stan-dev/cmdstanr
+            RcppEigen
+
+      - name: Build
+        run: |
+          cmdstanr::install_cmdstan(cores = parallel::detectCores())
+        shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v1
