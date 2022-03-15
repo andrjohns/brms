@@ -41,13 +41,7 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v1
         with:
-          extra-packages: |
-            rcmdcheck
-            stan-dev/cmdstanr
-
-      - name: Install cmdstan
-        run: |
-          cmdstanr::install_cmdstan(cores = parallel::detectCores())
-        shell: Rscript {0}
+          dependencies: NA
+          extra-packages: rcmdcheck
 
       - uses: r-lib/actions/check-r-package@v1

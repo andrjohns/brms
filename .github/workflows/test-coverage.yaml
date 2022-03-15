@@ -23,14 +23,8 @@ jobs:
 
       - uses: r-lib/actions/setup-r-dependencies@v1
         with:
-          extra-packages: |
-            covr
-            stan-dev/cmdstanr
-
-      - name: Install cmdstan
-        run: |
-          cmdstanr::install_cmdstan(cores = parallel::detectCores())
-        shell: Rscript {0}
+          dependencies: NA
+          extra-packages: covr
 
       - name: Test coverage
         run: covr::codecov()
