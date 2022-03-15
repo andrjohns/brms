@@ -59,11 +59,11 @@ jobs:
         run: |
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
-          dir.create(".R")
+          dir.create("~/.R")
           flags <- c("CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations",
                      "CXX14FLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations")
-          cat(flags, file = "~/.R/Makevars")
-          cat(flags, file = "~/.R/Makevars.win")
+          cat(flags, file = "~/.R/Makevars", sep = "\n")
+          cat(flags, file = "~/.R/Makevars.win", sep = "\n")
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v1
