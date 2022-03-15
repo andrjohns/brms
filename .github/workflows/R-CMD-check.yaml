@@ -71,7 +71,7 @@ jobs:
 
       - name: Build cmdstan
         run: |
-          tinytex:::install_yihui_pkgs()
+          tinytex:::tlmgr_install("ae")
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
           dir.create("~/.R")
