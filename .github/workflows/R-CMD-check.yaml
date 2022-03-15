@@ -60,8 +60,8 @@ jobs:
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
           dir.create("~/.R")
-          flags <- c("CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations",
-                     "CXX14FLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations")
+          flags <- c("CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations -Wno-attributes -Wno-unused-local-typedefs -Wno-pedantic -Wno-unused-function",
+                     "CXX14FLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations -Wno-attributes -Wno-unused-local-typedefs -Wno-pedantic -Wno-unused-function")
           cat(flags, file = "~/.R/Makevars", sep = "\n")
           cat(flags, file = "~/.R/Makevars.win", sep = "\n")
         shell: Rscript {0}
