@@ -164,77 +164,105 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
   # For copula models, n
   if (!is.null(x$copula)) {
     str_add(out$tdata_def) <- glue(
-      "  int Outcome_Order[{length(x$terms)}];  // response array\n"
+      "  int Outcome_Order[{length(x$terms)}];  // Array to index outcome order\n"
     )
-    str_add(out$model_def) <- glue(
-      "  matrix[N, {length(x$terms)}] Y;  // response array\n"
-    )
+    current_families <- unique(family_names(x))
+    responses <- sapply(x$terms, function(bterms) { bterms$resp })
     # Group responses by family
-    el_fams <- c("gaussian", "poisson", "binomial")
-    current_families <- el_fams[el_fams %in% family_names(x)]
-    responses <- sapply(x$terms, function(bterms) { bterms$resp})
+    resp_by_family <- lapply(current_families,
+                             function(family) { x$terms[family_names(x) == family] })
+    nresp_by_family <- sapply(resp_by_family, function(resp) { length(resp) })
+    names(resp_by_family) <- current_families
+    names(nresp_by_family) <- current_families
+
+    # Generate code to pack outcomes of same family into a single matrix (by column)
+    # Additionally generate an array of integers to index the original order of outcomes
     pos = 1
-    u_pos = 1
-    for (family in unique(current_families)) {
-      fam_resp = x$terms[family_names(x) == family]
-      if (family == "gaussian") {
-        args <- c("Y_gaussian", "Mu_gaussian", "sigma")
-      } else if (family == "binomial") {
-        args <- c("Y_binomial", "trials_binomial", "Mu_binomial", "URaw_binomial")
-      } else {
-        args <- paste0(c("Y", "Mu", "URaw"), "_", family)
-      }
-      n_fam_resp = length(fam_resp)
+    for (family in current_families) {
+      family_resp <- resp_by_family[[family]]
+      n_fam_resp <- nresp_by_family[family]
       if (family == "gaussian") {
         str_add(out$tdata_def) <- glue(
-          "  matrix[N, {n_fam_resp}] Y_{family};  // response array\n"
+          "  matrix[N, {n_fam_resp}] Y_{family};  // Matrix to hold all {family} outcomes\n"
         )
       } else {
         str_add(out$tdata_def) <- glue(
-          "  int Y_{family}[N, {n_fam_resp}];  // response array\n"
+          "  int Y_{family}[N, {n_fam_resp}];  // Array to hold all {family} outcomes\n"
         )
       }
-      if (family == "binomial") {
-        str_add(out$tdata_def) <- glue(
-          "  int trials_{family}[N, {n_fam_resp}];  // response array\n"
-        )
-        for (i in 1:n_fam_resp) {
-          str_add(out$tdata_comp) <- glue(
-            "  trials_{family}[ : , {i}] = trials_{fam_resp[[i]]$resp};\n"
-          )
-        }
-      }
-      str_add(out$model_def) <- glue(
-        "  // multivariate predictor array\n",
-        "  matrix[N, {n_fam_resp}] Mu_{family};\n"
-      )
-      str_add(out$model_def) <- glue(
-        "  // multivariate predictor array\n",
-        "  matrix[N, {n_fam_resp}] {family}_marginals[2];\n"
-      )
+
       for (i in 1:n_fam_resp) {
         str_add(out$tdata_comp) <- glue(
-          "  Outcome_Order[{pos}] = {which(responses == fam_resp[[i]]$resp)};\n"
+          "  Y_{family}[ : , {i}] = Y_{family_resp[[i]]$resp};\n"
         )
         str_add(out$tdata_comp) <- glue(
-          "  Y_{family}[ : , {i}] = Y_{fam_resp[[i]]$resp};\n"
-        )
-        str_add(out$model_comp_mvjoin) <- glue(
-          "  Mu_{family}[ : , {i}] = mu_{fam_resp[[i]]$resp};\n"
+          "  Outcome_Order[{pos}] = {which(responses == family_resp[[i]]$resp)};\n"
         )
         pos <- pos + 1
       }
-      str_add(out$model_comp_mvjoin) <- glue(
-        "  {family}_marginals = {family}_marginal({paste0(args, collapse=',')});\n",
-        "  Y[ : , {u_pos}:{u_pos + n_fam_resp - 1}] = {family}_marginals[1];\n",
-        "  target += sum({family}_marginals[2]);\n"
-      )
-      u_pos <- u_pos + n_fam_resp
+
+      if (family == "binomial") {
+        str_add(out$tdata_def) <- glue(
+          "  int trials_{family}[N, {n_fam_resp}];  // Array of all denominators for binomials\n"
+        )
+        for (i in 1:n_fam_resp) {
+          str_add(out$tdata_comp) <- glue(
+            "  trials_{family}[ : , {i}] = trials_{family_resp[[i]]$resp};\n"
+          )
+        }
+      }
       if (family != "gaussian") {
         str_add(out$par) <- glue(
-          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family};\n"
+          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family}; // RVs for augmentation of discrete marginals\n"
         )
       }
+    }
+
+    for (family in current_families) {
+      str_add(out$model_def) <- glue(
+        "  matrix[N, {nresp_by_family[family]}] Mu_{family}; // Matrix of all mean/location parameters\n"
+      )
+    }
+    for (family in current_families) {
+      str_add(out$model_def) <- glue(
+        "  matrix[N, {nresp_by_family[family]}] {family}_marginals[2];\n"
+      )
+    }
+
+    str_add(out$model_def) <- glue(
+      "  matrix[N, {length(x$terms)}] Y;  // Matrix of all calculated marginals\n"
+    )
+
+    for (family in current_families) {
+      family_resp <- resp_by_family[[family]]
+      n_fam_resp <- nresp_by_family[family]
+      for (i in 1:n_fam_resp) {
+        str_add(out$model_comp_basic) <- glue(
+          "  Mu_{family}[ : , {i}] = mu_{family_resp[[i]]$resp};\n"
+        )
+      }
+    }
+
+    for (family in current_families) {
+      args <- paste0(glue(glue("{{.family_{family}()$copula_args}}")), collapse = ",")
+      str_add(out$model_comp_basic) <- glue(
+        "  {family}_marginals = {family}_marginal({args});\n"
+      )
+    }
+
+    u_pos = 1
+    for (family in current_families) {
+      n_fam_resp <- nresp_by_family[family]
+      str_add(out$model_comp_basic) <- glue(
+        "  Y[ : , Outcome_Order[{u_pos}:{u_pos + n_fam_resp - 1}]] = {family}_marginals[1];\n"
+      )
+      u_pos <- u_pos + n_fam_resp
+    }
+
+    for (family in unique(current_families)) {
+      str_add(out$model_comp_basic) <- glue(
+        "  target += sum({family}_marginals[2]);\n"
+      )
     }
   }
   if (is.null(x$copula)) {

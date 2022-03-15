@@ -365,7 +365,7 @@ stan_log_lik_gaussian_mv <- function(bterms, resp = "", mix = "", ...) {
 }
 
 stan_log_lik_copula_mv <- function(bterms, resp = "", mix = "", ...) {
-  sdist("multi_normal_cholesky_copula", "Lrescor", "Outcome_Order")
+  sdist("multi_normal_cholesky_copula", "Lrescor")
 }
 
 stan_log_lik_gaussian_time <- function(bterms, resp = "", mix = "", ...) {
