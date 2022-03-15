@@ -54,6 +54,18 @@ jobs:
             ape
             https://github.com/stan-dev/cmdstanr
             RcppEigen
+            testthat
+            emmeans
+            projpred
+            RWiener
+            rtdists
+            extraDistr
+            spdep
+            mnormt
+            splines2
+            arm
+            statmod
+            diffobj
 
       - uses: r-lib/actions/setup-tinytex@v2
 
