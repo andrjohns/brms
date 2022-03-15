@@ -21,7 +21,8 @@
     ad = c("weights", "subset", "se", "cens", "trunc", "mi", "index"),
     normalized = c("_time_hom", "_time_het", "_lagsar", "_errorsar", "_fcor"),
     specials = c("residuals", "rescor"),
-    copula_args = c("Y_gaussian", "Mu_gaussian", "sigma")
+    copula_args = c("Y_gaussian", "Mu_gaussian", "sigma"),
+    cdf = TRUE
   )
 }
 
@@ -162,7 +163,8 @@
     ybounds = c(0, Inf), closed = c(TRUE, NA),
     ad = c("weights", "subset", "cens", "trunc", "rate", "index"),
     specials = "sbi_log",
-    copula_args = c("Y_poisson", "Mu_poisson", "URaw_poisson")
+    copula_args = c("Y_poisson", "Mu_poisson", "URaw_poisson"),
+    cdf = TRUE
   )
 }
 
