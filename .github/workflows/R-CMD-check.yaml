@@ -54,9 +54,11 @@ jobs:
             ape
             https://github.com/stan-dev/cmdstanr
             RcppEigen
+            tinytex
 
       - name: Build cmdstan
         run: |
+          tinytex::install_tinytex()
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
           dir.create("~/.R")
