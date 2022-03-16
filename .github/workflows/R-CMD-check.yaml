@@ -39,6 +39,9 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      # As cmdstanr is not yet on CRAN, configure the action to only install the
+      # 'Depends' packages by default and then manually specify the 'Suggests'
+      # packages that are needed for R CMD CHECK
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           dependencies: NA
@@ -67,12 +70,15 @@ jobs:
             statmod
             diffobj
 
-      - name: Build cmdstan
+      - uses: r-lib/actions/setup-tinytex@v2
+
+      - name: Build Cmdstan
         run: |
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
         shell: Rscript {0}
 
+      # Specify that
       - uses: r-lib/actions/check-r-package@v1
         with:
           build_args: ${{ matrix.config.build_args }}
