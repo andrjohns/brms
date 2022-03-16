@@ -18,11 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macOS-latest,   r: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran'}
-          - {os: windows-latest, r: 'release', build_args: '"--no-manual", "--no-build-vignettes"', check_args: '"--no-manual", "--as-cran", "--ignore-vignettes'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
-          - {os: ubuntu-latest,   r: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
-          - {os: ubuntu-latest,   r: 'oldrel-1', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
+          - {os: macOS-latest,   r: 'release'}
+          - {os: windows-latest, r: 'release'}
+          - {os: ubuntu-latest,   r: 'devel'}
+          - {os: ubuntu-latest,   r: 'release'}
+          - {os: ubuntu-latest,   r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -69,7 +69,6 @@ jobs:
             arm
             statmod
             diffobj
-            devtools
 
       - name: Build Cmdstan
         run: |
@@ -77,13 +76,7 @@ jobs:
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
         shell: Rscript {0}
 
-      # Specify that
       - uses: r-lib/actions/check-r-package@v1
         with:
           build_args: '"--no-manual", "--no-build-vignettes"'
           args: '"--no-manual", "--as-cran", "--ignore-vignettes"'
-
-      - name: Build vignettes
-        run: |
-          devtools::build_vignettes()
-        shell: Rscript {0}
