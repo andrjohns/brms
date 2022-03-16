@@ -1,27 +1,38 @@
-setwd("brms")
+setwd("~/brms")
 devtools::load_all()
 
-n_out = mnormt::rmnorm(n = 500, mean = c(0, 0),
-                       varcov = cbind(c(1,-0.6),c(-0.6,1)))
-bdata = data.frame(
-  y1 = n_out[,1],
-  y2 = n_out[,2],
-  c = rpois(500, 10)
+set.seed(2022)
+
+cor <- round(randcorr::randcorr(4), 1) # Rounding for clarity
+
+# Generate correlated standard-normal variates
+n_out <- mnormt::rmnorm(n = 500, mean = c(0, 0, 0, 0),
+                        varcov = cor)
+
+# Put on uniform [0, 1] scale using standard normal CDF (Phi function)
+p_out <- pnorm(n_out)
+
+# Generate denominators for binomial
+d <- sample(10:100, 500, replace = T)
+
+# Transform uniform variates to desired distributions using
+# quantile function with desired parameters
+bdata <- data.frame(
+  y1 = qnorm(p_out[,1], 10, 4),
+  y2 = qnorm(p_out[,2], 3, 6),
+  c = qpois(p_out[,3], 15),
+  n = qbinom(p_out[,4], prob = 0.3, size = d),
+  d = d
 )
 
-bdata_bin = data.frame(n = c(2,1,4,5,1), d = c(5,5,5,5,5),
-                       y1 = n_out[,1],
-                       y2 = n_out[,2],
-                       c = c(2,1,3,2,4),
-                       c2 = c(10,5,1,8,20))
+colnames(cor) <- c("y1","y2","c","n")
+rownames(cor) <- c("y1","y2","c","n")
 
 
 mn <- bf(y1 ~ 1, family = gaussian())
-mn2 <- bf(y2 ~ 1, family = gaussian())
 mp <- bf(c ~ 1, family = poisson())
-mp2 <- bf(c2 ~ 1, family = poisson())
+mn2 <- bf(y2 ~ 1, family = gaussian())
 mb <- bf(n | trials(d) ~ 1, family = binomial())
+mod_n <- mn + mp + mn2 + mb + set_rescor(rescor = TRUE, copula = "gaussian")
 
-mod_n <- mn + mp + mn2 + set_rescor(rescor = TRUE, copula = "gaussian")
-
-t_n500 <- brm(mod_n, data = bdata, cores = 4, backend = "cmdstanr")
+t_n <- brm(mod_n, data = bdata, cores = 4)

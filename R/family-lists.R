@@ -21,7 +21,8 @@
     ad = c("weights", "subset", "se", "cens", "trunc", "mi", "index"),
     normalized = c("_time_hom", "_time_het", "_lagsar", "_errorsar", "_fcor"),
     specials = c("residuals", "rescor"),
-    copula_args = c("Y_gaussian", "Mu_gaussian", "sigma"),
+    copula_args = c("Y", "Mu", "sigma"),
+    copula_types = c("matrix", "matrix", "vector"),
     cdf = TRUE
   )
 }
@@ -59,7 +60,8 @@
     ybounds = c(0, Inf), closed = c(TRUE, NA),
     ad = c("weights", "subset", "trials", "cens", "trunc", "index"),
     specials = "sbi_logit",
-    copula_args = c("Y_binomial", "trials_binomial", "Mu_binomial", "URaw_binomial")
+    copula_args = c("Y", "trials", "Mu", "URaw"),
+    copula_types = c("int[,]", "int[,]", "matrix", "matrix")
   )
 }
 
@@ -72,7 +74,9 @@
     dpars = c("mu"), type = "int",
     ybounds = c(0, 1), closed = c(TRUE, TRUE),
     ad = c("weights", "subset", "index"),
-    specials = c("binary", "sbi_logit")
+    specials = c("binary", "sbi_logit"),
+    copula_args = c("Y", "Mu", "URaw"),
+    copula_types = c("int[,]", "matrix", "matrix")
   )
 }
 
@@ -163,7 +167,8 @@
     ybounds = c(0, Inf), closed = c(TRUE, NA),
     ad = c("weights", "subset", "cens", "trunc", "rate", "index"),
     specials = "sbi_log",
-    copula_args = c("Y_poisson", "Mu_poisson", "URaw_poisson"),
+    copula_args = c("Y", "Mu", "URaw"),
+    copula_types = c("int[,]", "matrix", "matrix"),
     cdf = TRUE
   )
 }

@@ -211,7 +211,8 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
           )
         }
       }
-      if (family != "gaussian") {
+      family_type <- glue(glue("{{.family_{family}()$type}}"))
+      if (family_type == "int") {
         str_add(out$par) <- glue(
           "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family}; // RVs for augmentation of discrete marginals\n"
         )
@@ -237,14 +238,18 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
       family_resp <- resp_by_family[[family]]
       n_fam_resp <- nresp_by_family[family]
       for (i in 1:n_fam_resp) {
+        trials_ad <- ifelse(is.null(family_resp[[i]]$adforms$rate), "",
+                            glue(" + log_denom_{family_resp[[i]]$resp}"))
         str_add(out$model_comp_basic) <- glue(
-          "  Mu_{family}[ : , {i}] = mu_{family_resp[[i]]$resp};\n"
+          "  Mu_{family}[ : , {i}] = mu_{family_resp[[i]]$resp}{trials_ad};\n"
         )
       }
     }
 
     for (family in current_families) {
-      args <- paste0(glue(glue("{{.family_{family}()$copula_args}}")), collapse = ",")
+      args <- eval(parse(text = glue(".family_{family}()$copula_args")))
+      args <- paste0(args, glue("_{family}"), collapse = ", ")
+      args <- gsub("sigma_gaussian", "sigma", args)
       str_add(out$model_comp_basic) <- glue(
         "  {family}_marginals = {family}_marginal({args});\n"
       )

@@ -666,12 +666,66 @@ stan_ordinal_lpmf <- function(family, link) {
 }
 
 copula_marginal <- function(family, link = "identity") {
-  has_cdf <- glue(glue("{{.family_{family}()$cdf}}"))
-  has_cdf <- isTRUE(as.logical(has_cdf))
-
-  if (!has_cdf) {
-    stop('Families require a CDF for use with copula = "gaussian"')
+  family_args <- eval(parse(text = glue(".family_{family}()")))
+  family_type <- family_args$type
+  copula_args <- family_args$copula_args
+  copula_types <- family_args$copula_types
+  if (is.null(copula_args)) {
+    stop(glue("Gaussian copulas are not implemented for family {family}"))
   }
 
+  function_args <- paste(copula_types, copula_args, collapse = ", ")
+  inv_link <- stan_inv_link(link)
+  args_indexed <- copula_args[!(copula_args %in% c("Y", "URaw"))]
 
+  args_indexed <- paste0(args_indexed, "[n, j]", collapse = ", ")
+  args_indexed <- gsub("Mu", "mu_inv_link", args_indexed)
+
+  out <- glue(
+    "  /* {family}-{link} marginal function for gaussian copula (discrete case)\n",
+    "   * Returns:\n",
+    "   *   Array of matrices, where first matrix contains standard-normal variates\n",
+    "   *   for copula lpdf, and the second matrix contains the jacobian adjustments\n",
+    "   */\n",
+    "   matrix[] {family}_{link}_marginal({function_args}){{\n",
+    "    int N = rows(Mu);\n",
+    "    int J = cols(Mu);\n"
+  )
+
+  if (family == "bernoulli") {
+    str_add(out) <- glue(
+    "    matrix[N, J] matrix_y = to_matrix(Y);\n",
+    "    matrix[N, J] mu_inv_link = 1 - {inv_link}(mu_glm);\n",
+    "    matrix[N, J] Lbound = matrix_y .* mu_inv_link;\n",
+    "    matrix[N, J] UmL = fabs(matrix_y - mu_inv_link);\n",
+    "    return {{inv_Phi(Lbound + UmL .* u_raw), log(UmL)}};\n",
+    "  }}\n"
+    )
+
+    return(out)
+  }
+
+  if (family_type == "int") {
+    str_add(out) <- glue(
+      "    matrix[N, J] mu_inv_link = {inv_link}(Mu);\n",
+      "    matrix[N, J] rtn[2];\n",
+      "    for (j in 1:J) {{\n",
+      "      for (n in 1:N) {{\n",
+      "        real Ubound = {family}_cdf(Y[n, j], {args_indexed});\n",
+      "        real Lbound = 0;\n",
+      "        real UmL;\n",
+      "        if (Y[n, j] > 0) {{\n",
+      "          Lbound = {family}_cdf(Y[n, j] - 1, {args_indexed});\n",
+      "        }}\n",
+      "        UmL = Ubound - Lbound;\n",
+      "        rtn[1][n, j] = inv_Phi(Lbound + UmL * URaw[n, j]);\n",
+      "        rtn[2][n, j] = log(UmL);\n",
+      "      }}\n",
+      "    }}\n",
+      "    return rtn;\n",
+      "  }}\n"
+    )
+
+    return(out)
+  }
 }
