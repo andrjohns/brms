@@ -18,11 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - {os: macOS-latest,   r: 'release', build_args: '"--no-manual"', check_args: 'c("--no-manual", "--as-cran")'}
-          - {os: windows-latest, r: 'release', build_args: 'c("--no-manual", "--no-build-vignettes")', check_args: 'c("--no-manual", "--as-cran", "--ignore-vignettes")'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release', build_args: '"--no-manual"', check_args: 'c("--no-manual", "--as-cran")'}
-          - {os: ubuntu-latest,   r: 'release', build_args: '"--no-manual"', check_args: 'c("--no-manual", "--as-cran")'}
-          - {os: ubuntu-latest,   r: 'oldrel-1', build_args: '"--no-manual"', check_args: 'c("--no-manual", "--as-cran")'}
+          - {os: macOS-latest,   r: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran'}
+          - {os: windows-latest, r: 'release', build_args: '"--no-manual", "--no-build-vignettes', check_args: '"--no-manual", "--as-cran", "--ignore-vignettes'}
+          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
+          - {os: ubuntu-latest,   r: 'release', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
+          - {os: ubuntu-latest,   r: 'oldrel-1', build_args: '"--no-manual"', check_args: '"--no-manual", "--as-cran"'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -69,6 +69,7 @@ jobs:
             arm
             statmod
             diffobj
+            local::.
 
       # - uses: r-lib/actions/setup-tinytex@v2
 
@@ -79,7 +80,7 @@ jobs:
         shell: Rscript {0}
 
       # Specify that
-      - uses: r-lib/actions/check-r-package@v1
-        with:
-          build_args: ${{ matrix.config.build_args }}
-          args: ${{ matrix.config.check_args }}
+     # - uses: r-lib/actions/check-r-package@v1
+     #   with:
+     #     build_args: ${{ matrix.config.build_args }}
+     #     args: ${{ matrix.config.check_args }}
