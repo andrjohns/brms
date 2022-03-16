@@ -29,6 +29,12 @@ jobs:
             covr
             https://github.com/stan-dev/cmdstanr
 
+      - name: Build Cmdstan
+        run: |
+          cmdstanr::check_cmdstan_toolchain(fix = TRUE)
+          cmdstanr::install_cmdstan(cores = parallel::detectCores())
+        shell: Rscript {0}
+
       - name: Test coverage
         run: covr::codecov()
         shell: Rscript {0}
