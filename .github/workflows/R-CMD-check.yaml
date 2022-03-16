@@ -18,11 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          #- {os: macOS-latest,   r: 'release'}
-          - {os: windows-latest, r: 'release'}
-          #- {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
-          #- {os: ubuntu-latest,   r: 'release'}
-          #- {os: ubuntu-latest,   r: 'oldrel-1'}
+          - {os: macOS-latest,   r: 'release'}
+          - {os: windows-latest, r: 'release', build_args: 'c("--no-manual", "--no-build-vignettes")', check_args: 'c("--no-manual", "--as-cran", "--ignore-vignettes")'}
+          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
+          - {os: ubuntu-latest,   r: 'release'}
+          - {os: ubuntu-latest,   r: 'oldrel-1'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -67,21 +67,13 @@ jobs:
             statmod
             diffobj
 
-      - uses: r-lib/actions/setup-tinytex@v2
-
       - name: Build cmdstan
         run: |
-          tinytex:::tlmgr_install("ae")
           cmdstanr::check_cmdstan_toolchain(fix = TRUE)
           cmdstanr::install_cmdstan(cores = parallel::detectCores())
-          dir.create("~/.R")
-          flags <- c("CXXFLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations -Wno-attributes -Wno-unused-local-typedefs -Wno-pedantic -Wno-unused-function",
-                     "CXX14FLAGS += -Wno-ignored-attributes -Wno-deprecated-declarations -Wno-attributes -Wno-unused-local-typedefs -Wno-pedantic -Wno-unused-function")
-          cat(flags, file = "~/.R/Makevars", sep = "\n")
-          cat(flags, file = "~/.R/Makevars.win", sep = "\n")
         shell: Rscript {0}
 
       - uses: r-lib/actions/check-r-package@v1
         with:
-          build_args: 'c("--no-manual", "--no-build-vignettes")'
-          args: 'c("--no-manual", "--as-cran", "--ignore-vignettes")'
+          build_args: ${{ matrix.config.build_args }}
+          args: ${{ matrix.config.check_args }}
