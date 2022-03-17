@@ -123,7 +123,7 @@ stan_global_defs <- function(bterms, prior, ranef, threads) {
     str_add(out$fun) <- "  #include 'copula/fun_multi_normal_cholesky_copula.stan'\n"
     for (i in 1:length(families)) {
       if (families[i] == "gaussian" && links[i] == "identity") {
-        str_add(out$fun) <- "  #include 'copula/fun_gaussian_marginal.stan'\n"
+        str_add(out$fun) <- "  #include 'copula/fun_gaussian_identity_marginal.stan'\n"
       } else {
         str_add(out$fun) <- copula_marginal(families[i], links[i])
       }

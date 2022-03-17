@@ -166,38 +166,39 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     str_add(out$tdata_def) <- glue(
       "  int Outcome_Order[{length(x$terms)}];  // Array to index outcome order\n"
     )
-    families <- family_names(bterms)
-    links <- family_info(bterms, "link")
+    families <- family_names(x)
+    links <- family_info(x, "link")
     unique_combs <- !duplicated(paste0(families, ":", links))
     families <- families[unique_combs]
     links <- links[unique_combs]
+    n_unique_combs <- sum(unique_combs)
     responses <- sapply(x$terms, function(bterms) { bterms$resp })
     # Group responses by family
-    resp_by_family <- lapply(current_families,
-                             function(family) { x$terms[family_names(x) == family] })
-    nresp_by_family <- sapply(resp_by_family, function(resp) { length(resp) })
-    names(resp_by_family) <- current_families
-    names(nresp_by_family) <- current_families
+    resp_by_family_link <- lapply(1:n_unique_combs,
+                             function(i) { x$terms[family_names(x) == families[i] & family_info(x, "link") == links[i]] })
+    nresp_by_family <- sapply(resp_by_family_link, function(resp) { length(resp) })
 
     # Generate code to pack outcomes of same family into a single matrix (by column)
     # Additionally generate an array of integers to index the original order of outcomes
     pos = 1
-    for (family in current_families) {
-      family_resp <- resp_by_family[[family]]
-      n_fam_resp <- nresp_by_family[family]
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
+      family_resp <- resp_by_family_link[[i]]
+      n_fam_resp <- nresp_by_family[i]
       if (family == "gaussian") {
         str_add(out$tdata_def) <- glue(
-          "  matrix[N, {n_fam_resp}] Y_{family};  // Matrix to hold all {family} outcomes\n"
+          "  matrix[N, {n_fam_resp}] Y_{family}_{link};  // Matrix to hold all {family} outcomes\n"
         )
       } else {
         str_add(out$tdata_def) <- glue(
-          "  int Y_{family}[N, {n_fam_resp}];  // Array to hold all {family} outcomes\n"
+          "  int Y_{family}_{link}[N, {n_fam_resp}];  // Array to hold all {family} outcomes\n"
         )
       }
 
       for (i in 1:n_fam_resp) {
         str_add(out$tdata_comp) <- glue(
-          "  Y_{family}[ : , {i}] = Y_{family_resp[[i]]$resp};\n"
+          "  Y_{family}_{link}[ : , {i}] = Y_{family_resp[[i]]$resp};\n"
         )
         str_add(out$tdata_comp) <- glue(
           "  Outcome_Order[{pos}] = {which(responses == family_resp[[i]]$resp)};\n"
@@ -207,30 +208,34 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
 
       if (family == "binomial") {
         str_add(out$tdata_def) <- glue(
-          "  int trials_{family}[N, {n_fam_resp}];  // Array of all denominators for binomials\n"
+          "  int trials_{family}_{link}[N, {n_fam_resp}];  // Array of all denominators for binomials\n"
         )
         for (i in 1:n_fam_resp) {
           str_add(out$tdata_comp) <- glue(
-            "  trials_{family}[ : , {i}] = trials_{family_resp[[i]]$resp};\n"
+            "  trials_{family}_{link}[ : , {i}] = trials_{family_resp[[i]]$resp};\n"
           )
         }
       }
       family_type <- glue(glue("{{.family_{family}()$type}}"))
       if (family_type == "int") {
         str_add(out$par) <- glue(
-          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family}; // RVs for augmentation of discrete marginals\n"
+          "  matrix<lower=0, upper=1>[N, {n_fam_resp}] URaw_{family}_{link}; // RVs for augmentation of discrete marginals\n"
         )
       }
     }
 
-    for (family in current_families) {
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
       str_add(out$model_def) <- glue(
-        "  matrix[N, {nresp_by_family[family]}] Mu_{family}; // Matrix of all mean/location parameters\n"
+        "  matrix[N, {nresp_by_family[i]}] Mu_{family}_{link}; // Matrix of all mean/location parameters\n"
       )
     }
-    for (family in current_families) {
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
       str_add(out$model_def) <- glue(
-        "  matrix[N, {nresp_by_family[family]}] {family}_marginals[2];\n"
+        "  matrix[N, {nresp_by_family[i]}] {family}_{link}_marginals[2];\n"
       )
     }
 
@@ -238,39 +243,47 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
       "  matrix[N, {length(x$terms)}] Y;  // Matrix of all calculated marginals\n"
     )
 
-    for (family in current_families) {
-      family_resp <- resp_by_family[[family]]
-      n_fam_resp <- nresp_by_family[family]
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
+      family_resp <- resp_by_family_link[[i]]
+      n_fam_resp <- nresp_by_family[i]
       for (i in 1:n_fam_resp) {
         trials_ad <- ifelse(is.null(family_resp[[i]]$adforms$rate), "",
                             glue(" + log_denom_{family_resp[[i]]$resp}"))
         str_add(out$model_comp_basic) <- glue(
-          "  Mu_{family}[ : , {i}] = mu_{family_resp[[i]]$resp}{trials_ad};\n"
+          "  Mu_{family}_{link}[ : , {i}] = mu_{family_resp[[i]]$resp}{trials_ad};\n"
         )
       }
     }
 
-    for (family in current_families) {
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
       args <- eval(parse(text = glue(".family_{family}()$copula_args")))
-      args <- paste0(args, glue("_{family}"), collapse = ", ")
-      args <- gsub("sigma_gaussian", "sigma", args)
+      args <- paste0(args, glue("_{family}_{link}"), collapse = ", ")
+      args <- gsub("sigma_gaussian_identity", "sigma", args)
       str_add(out$model_comp_basic) <- glue(
-        "  {family}_marginals = {family}_marginal({args});\n"
+        "  {family}_{link}_marginals = {family}_{link}_marginal({args});\n"
       )
     }
 
     u_pos = 1
-    for (family in current_families) {
-      n_fam_resp <- nresp_by_family[family]
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
+      n_fam_resp <- nresp_by_family[i]
       str_add(out$model_comp_basic) <- glue(
-        "  Y[ : , Outcome_Order[{u_pos}:{u_pos + n_fam_resp - 1}]] = {family}_marginals[1];\n"
+        "  Y[ : , Outcome_Order[{u_pos}:{u_pos + n_fam_resp - 1}]] = {family}_{link}_marginals[1];\n"
       )
       u_pos <- u_pos + n_fam_resp
     }
 
-    for (family in unique(current_families)) {
+    for (i in 1:n_unique_combs) {
+      family <- families[i]
+      link <- links[i]
       str_add(out$model_comp_basic) <- glue(
-        "  target += sum({family}_marginals[2]);\n"
+        "  target += sum({family}_{link}_marginals[2]);\n"
       )
     }
   }
