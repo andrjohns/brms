@@ -166,7 +166,11 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     str_add(out$tdata_def) <- glue(
       "  int Outcome_Order[{length(x$terms)}];  // Array to index outcome order\n"
     )
-    current_families <- unique(family_names(x))
+    families <- family_names(bterms)
+    links <- family_info(bterms, "link")
+    unique_combs <- !duplicated(paste0(families, ":", links))
+    families <- families[unique_combs]
+    links <- links[unique_combs]
     responses <- sapply(x$terms, function(bterms) { bterms$resp })
     # Group responses by family
     resp_by_family <- lapply(current_families,
