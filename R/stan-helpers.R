@@ -120,6 +120,7 @@ stan_global_defs <- function(bterms, prior, ranef, threads) {
   if (!is.null(bterms$copula)) {
     str_add(out$fun) <- "  #include 'copula/LICENSE.stan'\n"
     str_add(out$fun) <- "  #include 'fun_chol2inv.stan'\n"
+    str_add(out$fun) <- "  #include 'fun_inv_Phi_log.stan'\n"
     str_add(out$fun) <- "  #include 'copula/fun_multi_normal_cholesky_copula.stan'\n"
     for (i in 1:length(families)) {
       if (families[i] == "gaussian" && links[i] == "identity") {
