@@ -68,11 +68,45 @@ inv_link <- function(x, link) {
   )
 }
 
+# log CDF for unit interval link functions
+# @param x an array of arbitrary dimension
+# @param link a character string defining the link
+log_cdf <- function(x, link) {
+  switch(link,
+    logit = log_inv_logit(x),
+    probit = pnorm(x, log.p = TRUE),
+    cauchit = pcauchy(x, log.p = TRUE),
+    cloglog = log1m_exp(-exp(x)),
+    probit_approx = pnorm(x, log.p = TRUE),
+    softit = log_inv_softit(x),
+    stop2("Link '", link, "' is not supported.")
+  )
+}
+
+# log CCDF for unit interval link functions
+# @param x an array of arbitrary dimension
+# @param link a character string defining the link
+log_ccdf <- function(x, link) {
+  switch(link,
+    logit = log1m_inv_logit(x),
+    probit = pnorm(x, log.p = TRUE, lower.tail = FALSE),
+    cauchit = pcauchy(x, log.p = TRUE, lower.tail = FALSE),
+    cloglog = -exp(x),
+    probit_approx = pnorm(x, log.p = TRUE, lower.tail = FALSE),
+    softit = log1m_inv_softit(x),
+    stop2("Link '", link, "' is not supported.")
+  )
+}
+
 # validate integers indicating which draws to subset
 validate_draw_ids <- function(x, draw_ids = NULL, ndraws = NULL) {
   ndraws_total <- ndraws(x)
   if (is.null(draw_ids) && !is.null(ndraws)) {
     ndraws <- as_one_integer(ndraws)
+    if (ndraws < 1 || ndraws > ndraws_total) {
+      stop2("Argument 'ndraws' should be between 1 and ",
+            "the maximum number of draws (", ndraws_total, ").")
+    }
     draw_ids <- sample(seq_len(ndraws_total), ndraws)
   }
   if (!is.null(draw_ids)) {
@@ -440,7 +474,7 @@ get_theta <- function(prep, i = NULL) {
     }
     theta <- abind(theta, along = 3)
     for (n in seq_len(dim(theta)[2])) {
-      theta[, n, ] <- softmax(theta[, n, ])
+      theta[, n, ] <- softmax(slice(theta, 2, n))
     }
     if (length(i) == 1L) {
       dim(theta) <- dim(theta)[c(1, 3)]
@@ -536,7 +570,7 @@ get_Sigma <- function(prep, i = NULL, cor_name = NULL) {
     sigma <- abind(sigma, along = 3)
     Sigma <- array(dim = c(dim_mu(prep), nsigma, nsigma))
     for (n in seq_len(ncol(Sigma))) {
-      Sigma[, n, , ] <- get_cov_matrix(sigma[, n, ], cors)
+      Sigma[, n, , ] <- get_cov_matrix(slice(sigma, 2, n), cors)
     }
   }
   Sigma
@@ -759,7 +793,7 @@ add_rstan_model <- function(x, overwrite = FALSE) {
     message("Recompiling the model with 'rstan'")
     # threading is not yet supported by rstan and needs to be deactivated
     stanfit <- suppressMessages(rstan::stan(
-      model_code = stancode(x, threads = threading()),
+      model_code = stancode(x, threads = threading(), backend = "rstan"),
       data = standata(x), chains = 0
     ))
     x$fit@stanmodel <- stanfit@stanmodel

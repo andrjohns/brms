@@ -308,7 +308,8 @@ make_stancode <- function(formula, data, family = gaussian(),
     scode <- parse_model(scode, backend, silent = silent)
   }
   if (backend == "cmdstanr") {
-    if (cmdstanr::cmdstan_version() >= "2.29.0") {
+    if (requireNamespace("cmdstanr", quietly = TRUE) && 
+        cmdstanr::cmdstan_version() >= "2.29.0") {
       tmp_file <- cmdstanr::write_stan_file(scode)
       scode <- .canonicalize_stan_model(tmp_file, overwrite_file = FALSE)
     }
@@ -342,6 +343,7 @@ print.brmsmodel <- function(x, ...) {
 #'   to be \code{TRUE} by other arguments.
 #' @param threads Controls whether the Stan code should be threaded.
 #'   See \code{\link{threading}} for details.
+#' @param backend Controls the Stan backend. See \code{\link{brm}} for details.
 #' @param ... Further arguments passed to \code{\link{make_stancode}} if the
 #'   Stan code is regenerated.
 #'
@@ -349,7 +351,7 @@ print.brmsmodel <- function(x, ...) {
 #'
 #' @export
 stancode.brmsfit <- function(object, version = TRUE, regenerate = NULL,
-                             threads = NULL, ...) {
+                             threads = NULL, backend = NULL, ...) {
   if (is.null(regenerate)) {
     # determine whether regenerating the Stan code is required
     regenerate <- FALSE
@@ -363,6 +365,14 @@ stancode.brmsfit <- function(object, version = TRUE, regenerate = NULL,
       }
       object$threads <- threads
     }
+    if ("backend" %in% names(cl)) {
+      backend <- match.arg(backend, backend_choices())
+      # older Stan versions do not support array syntax
+      if (require_old_stan_syntax(object, backend, "2.29.0")) {
+        regenerate <- TRUE
+      }
+      object$backend <- backend
+    }
   }
   regenerate <- as_one_logical(regenerate)
   if (regenerate) {
@@ -375,6 +385,7 @@ stancode.brmsfit <- function(object, version = TRUE, regenerate = NULL,
       stanvars = object$stanvars,
       sample_prior = get_sample_prior(object$prior),
       threads = object$threads,
+      backend = object$backend,
       ...
     )
   } else {
@@ -433,4 +444,16 @@ normalize_stancode <- function(x) {
   # Standardize whitespace (including newlines)
   x <- gsub("[[:space:]]+"," ", x)
   trimws(x)
+}
+
+# check if the currently installed Stan version requires older syntax 
+# than the Stan version with which the model was initially fitted
+require_old_stan_syntax <- function(object, backend, version) {
+  stopifnot(is.brmsfit(object))
+  isTRUE(
+    (object$backend == "rstan" && object$version$rstan >= version ||
+       object$backend == "cmdstanr" && object$version$cmdstan >= version) &&
+      (backend == "rstan" && utils::packageVersion("rstan") < version ||
+         backend == "cmdstanr" && cmdstanr::cmdstan_version() < version)
+  )
 }

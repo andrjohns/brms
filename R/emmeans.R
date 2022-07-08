@@ -15,6 +15,9 @@
 #'   the posterior predictive distribution's mean
 #'   (see \code{\link{posterior_epred.brmsfit}}) while ignoring
 #'   arguments \code{dpar} and \code{nlpar}. Defaults to \code{FALSE}.
+#'   If you have specified a response transformation within the formula,
+#'   you need to set \code{epred} to \code{TRUE} for \pkg{emmeans} to
+#'   detect this transformation.
 #' @param data,trms,xlev,grid,vcov. Arguments required by \pkg{emmeans}.
 #' @param ... Additional arguments passed to \pkg{emmeans}.
 #'
@@ -28,19 +31,29 @@
 #'
 #' @examples
 #' \dontrun{
-#' fit <- brm(time | cens(censored) ~ age * sex + disease + (1|patient),
+#' fit1 <- brm(time | cens(censored) ~ age * sex + disease + (1|patient),
 #'             data = kidney, family = lognormal())
-#' summary(fit)
+#' summary(fit1)
 #'
 #' # summarize via 'emmeans'
 #' library(emmeans)
-#' rg <- ref_grid(fit)
+#' rg <- ref_grid(fit1)
 #' em <- emmeans(rg, "disease")
 #' summary(em, point.est = mean)
 #'
 #' # obtain estimates for the posterior predictive distribution's mean
-#' epred <- emmeans(fit, "disease", epred = TRUE)
+#' epred <- emmeans(fit1, "disease", epred = TRUE)
 #' summary(epred, point.est = mean)
+#'
+#'
+#' # model with transformed response variable
+#' fit2 <- brm(log(mpg) ~ factor(cyl), data = mtcars)
+#' summary(fit2)
+#'
+#' # results will be on the log scale by default
+#' emmeans(fit2, ~ cyl)
+#' # log transform is detected and can be adjusted automatically
+#' emmeans(fit2, ~ cyl, epred = TRUE, type = "response")
 #' }
 NULL
 
@@ -55,8 +68,13 @@ recover_data.brmsfit <- function(object, data, resp = NULL, dpar = NULL,
     re_formula = re_formula, epred = epred
   )
   trms <- attr(model.frame(bterms$allvars, data = object$data), "terms")
-  # brms has no call component so the call is just a dummy
-  emmeans::recover_data(call("brms"), trms, "na.omit", data = object$data, ...)
+  # brms has no call component so the call is just a dummy for the most part
+  cl <- call("brms")
+  if (epred) {
+    # fixes issue #1360 for in-formula response transformations
+    cl$formula <- bterms$respform
+  }
+  emmeans::recover_data(cl, trms, "na.omit", data = object$data, ...)
 }
 
 # Calculate the basis for making predictions. In some sense, this is
@@ -87,7 +105,8 @@ emm_basis.brmsfit <- function(object, trms, xlev, grid, vcov., resp = NULL,
     post.beta <- posterior_linpred(
       object, newdata = grid, re_formula = re_formula,
       resp = resp, dpar = dpar, nlpar = nlpar,
-      incl_autocor = FALSE, req_vars = req_vars, ...
+      incl_autocor = FALSE, req_vars = req_vars,
+      transform = FALSE, ...
     )
   }
   if (anyNA(post.beta)) {

@@ -30,7 +30,7 @@ p <- function(x, i = NULL, row = TRUE) {
 
 # extract parts of an object with selective dropping of dimensions
 # @param x,...,drop same as in x[..., drop]
-# @drop_dim: Optional numeric or logical vector controlling
+# @param drop_dim Optional numeric or logical vector controlling
 #   which dimensions to drop. Will overwrite argument 'drop'.
 extract <- function(x, ..., drop = FALSE, drop_dim = NULL) {
   if (!length(dim(x))) {
@@ -191,6 +191,11 @@ array2list <- function(x) {
 # move elements to the start of a named object
 move2start <- function(x, first) {
   x[c(first, setdiff(names(x), first))]
+}
+
+# move elements to the end of a named object
+move2end <- function(x, last) {
+  x[c(setdiff(names(x), last), last)]
 }
 
 # wrapper around replicate but without simplifying

@@ -258,12 +258,12 @@ stan_log_lik_Y_name <- function(bterms) {
 # @param dpars optional names of distributional parameters to be prepared
 #   if not specified will prepare all distributional parameters
 stan_log_lik_dpars <- function(bterms, reqn, resp = "", mix = "", dpars = NULL,
-                               multi = FALSE) {
+                               type = NULL) {
   if (is.null(dpars)) {
-    dpars <- paste0(valid_dpars(bterms, multi = multi), mix)
+    dpars <- paste0(valid_dpars(bterms, type = type), mix)
   }
   pred_dpars <- names(bterms$dpars)
-  if (multi) {
+  if (is_equal(type, "multi")) {
     pred_dpars <- unique(dpar_class(pred_dpars, bterms))
   }
   is_pred <- dpars %in% pred_dpars
@@ -580,6 +580,18 @@ stan_log_lik_binomial <- function(bterms, resp = "", mix = "", threads = NULL,
   sdist(lpdf, p$trials, p$mu)
 }
 
+stan_log_lik_beta_binomial <- function(bterms, resp = "", mix = "",
+                                       threads = NULL, ...) {
+  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix)
+  n <- stan_nn(threads)
+  sdist(
+    "beta_binomial",
+    paste0("trials", resp, n),
+    paste0(p$mu, " * ", p$phi),
+    paste0("(1 - ", p$mu, ") * ", p$phi)
+  )
+}
+
 stan_log_lik_bernoulli <- function(bterms, resp = "", mix = "", threads = NULL,
                                    ...) {
   if (use_glm_primitive(bterms)) {
@@ -606,27 +618,39 @@ stan_log_lik_com_poisson <- function(bterms, resp = "", mix = "", ...) {
 }
 
 stan_log_lik_gamma <- function(bterms, resp = "", mix = "", ...) {
-  reqn <- stan_log_lik_adj(bterms) || nzchar(mix)
+  reqn <- stan_log_lik_adj(bterms) || nzchar(mix) ||
+    paste0("shape", mix) %in% names(bterms$dpars)
   p <- stan_log_lik_dpars(bterms, reqn, resp, mix)
-  sdist("gamma", p$shape, p$mu)
+  # Stan uses shape-rate parameterization with rate = shape / mean
+  div_op <- str_if(reqn, " / ", " ./ ")
+  sdist("gamma", p$shape, paste0(p$shape, div_op, p$mu))
 }
 
 stan_log_lik_exponential <- function(bterms, resp = "", mix = "", ...) {
   reqn <- stan_log_lik_adj(bterms) || nzchar(mix)
   p <- stan_log_lik_dpars(bterms, reqn, resp, mix)
-  sdist("exponential", p$mu)
+  # Stan uses rate parameterization with rate = 1 / mean
+  sdist("exponential", paste0("inv(", p$mu, ")"))
 }
 
 stan_log_lik_weibull <- function(bterms, resp = "", mix = "", ...) {
   reqn <- stan_log_lik_adj(bterms) || nzchar(mix)
   p <- stan_log_lik_dpars(bterms, reqn, resp, mix)
-  sdist("weibull", p$shape, p$mu)
+  # Stan uses shape-scale parameterization for weibull
+  need_dot_div <- !reqn && paste0("shape", mix) %in% names(bterms$dpars)
+  div_op <- str_if(need_dot_div, " ./ ", " / ")
+  p$scale <- paste0(p$mu, div_op, "tgamma(1 + 1", div_op, p$shape, ")")
+  sdist("weibull", p$shape, p$scale)
 }
 
 stan_log_lik_frechet <- function(bterms, resp = "", mix = "", ...) {
   reqn <- stan_log_lik_adj(bterms) || nzchar(mix)
   p <- stan_log_lik_dpars(bterms, reqn, resp, mix)
-  sdist("frechet", p$nu, p$mu)
+  # Stan uses shape-scale parameterization for frechet
+  need_dot_div <- !reqn && paste0("nu", mix) %in% names(bterms$dpars)
+  div_op <- str_if(need_dot_div, " ./ ", " / ")
+  p$scale <- paste0(p$mu, div_op, "tgamma(1 - 1", div_op, p$nu, ")")
+  sdist("frechet", p$nu, p$scale)
 }
 
 stan_log_lik_gen_extreme_value <- function(bterms, resp = "", mix = "", ...) {
@@ -719,21 +743,21 @@ stan_log_lik_acat <- function(bterms, resp = "", mix = "",
 stan_log_lik_categorical <- function(bterms, resp = "", mix = "", ...) {
   stopifnot(bterms$family$link == "logit")
   stopifnot(!isTRUE(nzchar(mix)))  # mixture models are not allowed
-  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", multi = TRUE)
+  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", type = "multi")
   sdist("categorical_logit", p$mu)
 }
 
 stan_log_lik_multinomial <- function(bterms, resp = "", mix = "", ...) {
   stopifnot(bterms$family$link == "logit")
   stopifnot(!isTRUE(nzchar(mix)))  # mixture models are not allowed
-  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", multi = TRUE)
+  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", type = "multi")
   sdist("multinomial_logit2", p$mu)
 }
 
 stan_log_lik_dirichlet <- function(bterms, resp = "", mix = "", ...) {
   stopifnot(bterms$family$link == "logit")
   stopifnot(!isTRUE(nzchar(mix)))  # mixture models are not allowed
-  mu <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", multi = TRUE)$mu
+  mu <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", type = "multi")$mu
   reqn <- glue("phi{mix}") %in% names(bterms$dpars)
   phi <- stan_log_lik_dpars(bterms, reqn, resp, mix, dpars = "phi")$phi
   sdist("dirichlet_logit", mu, phi)
@@ -741,14 +765,14 @@ stan_log_lik_dirichlet <- function(bterms, resp = "", mix = "", ...) {
 
 stan_log_lik_dirichlet2 <- function(bterms, resp = "", mix = "", ...) {
   stopifnot(!isTRUE(nzchar(mix)))  # mixture models are not allowed
-  mu <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", multi = TRUE)$mu
+  mu <- stan_log_lik_dpars(bterms, TRUE, resp, mix, dpars = "mu", type = "multi")$mu
   sdist("dirichlet", mu)
 }
 
 stan_log_lik_logistic_normal <- function(bterms, resp = "", mix = "", ...) {
   stopifnot(bterms$family$link == "identity")
   stopifnot(!isTRUE(nzchar(mix)))  # mixture models are not allowed
-  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, multi = TRUE)
+  p <- stan_log_lik_dpars(bterms, TRUE, resp, mix, type = "multi")
   p$Llncor <- glue("Llncor{mix}{resp}")
   p$refcat <- get_refcat(bterms$family, int = TRUE)
   sdist("logistic_normal_cholesky_cor", p$mu, p$sigma, p$Llncor, p$refcat)
@@ -805,7 +829,8 @@ stan_log_lik_hurdle_gamma <- function(bterms, resp = "", mix = "", ...) {
   p <- stan_log_lik_dpars(bterms, TRUE, resp, mix)
   usc_logit <- stan_log_lik_dpar_usc_logit("hu", bterms)
   lpdf <- paste0("hurdle_gamma", usc_logit)
-  sdist(lpdf, p$shape, p$mu, p$hu)
+  # Stan uses shape-rate parameterization for gamma with rate = shape / mean
+  sdist(lpdf, p$shape, paste0(p$shape, " / ", p$mu), p$hu)
 }
 
 stan_log_lik_hurdle_lognormal <- function(bterms, resp = "", mix = "", ...) {
@@ -849,7 +874,6 @@ stan_log_lik_zero_inflated_beta_binomial <- function(bterms, resp = "",
   n <- stan_nn(threads)
   p$trials <- paste0("trials", resp, n)
   lpdf <- "zero_inflated_beta_binomial"
-  lpdf <- stan_log_lik_simple_lpdf(lpdf, "logit", bterms, sep = "_b")
   lpdf <- paste0(lpdf, stan_log_lik_dpar_usc_logit("zi", bterms))
   sdist(lpdf, p$trials, p$mu, p$phi, p$zi)
 }

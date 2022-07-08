@@ -49,7 +49,7 @@ posterior_epred.brmsfit <- function(object, newdata = NULL, re_formula = NULL,
                                     nlpar = NULL, ndraws = NULL, draw_ids = NULL,
                                     sort = FALSE, ...) {
   cl <- match.call()
-  if ("re.form" %in% names(cl)) {
+  if ("re.form" %in% names(cl) && !missing(re.form)) {
     re_formula <- re.form
   }
   contains_draws(object)
@@ -312,7 +312,7 @@ posterior_linpred.brmsfit <- function(
   incl_thres = NULL, ndraws = NULL, draw_ids = NULL, sort = FALSE, ...
 ) {
   cl <- match.call()
-  if ("re.form" %in% names(cl)) {
+  if ("re.form" %in% names(cl) && !missing(re.form)) {
     re_formula <- re.form
   }
   scale <- "linear"
@@ -375,6 +375,12 @@ posterior_epred_binomial <- function(prep) {
   prep$dpars$mu * trials
 }
 
+posterior_epred_beta_binomial <- function(prep) {
+  # beta part included in mu
+  trials <- data2draws(prep$data$trials, dim_mu(prep))
+  prep$dpars$mu * trials
+}
+
 posterior_epred_bernoulli <- function(prep) {
   prep$dpars$mu
 }
@@ -432,6 +438,7 @@ posterior_epred_exgaussian <- function(prep) {
 }
 
 posterior_epred_wiener <- function(prep) {
+  # obtained from https://doi.org/10.1016/j.jmp.2009.01.006
   # mu is the drift rate
   with(prep$dpars,
    ndt - bias / mu + bs / mu *

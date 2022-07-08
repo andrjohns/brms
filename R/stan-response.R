@@ -134,12 +134,12 @@ stan_response <- function(bterms, data, normalize) {
     )
   }
   if (is.formula(bterms$adforms$cens)) {
-    cens <- eval_rhs(bterms$adforms$cens)
     str_add(out$data) <- glue(
       "  int<lower=-1,upper=2> cens{resp}[N{resp}];  // indicates censoring\n"
     )
     str_add(out$pll_args) <- glue(", data int[] cens{resp}")
-    if (cens$vars$y2 != "NA") {
+    y2_expr <- get_ad_expr(bterms, "cens", "y2")
+    if (!is.null(y2_expr)) {
       # interval censoring is required
       if (rtype == "int") {
         str_add(out$data) <- glue(
@@ -273,13 +273,11 @@ stan_thres <- function(bterms, data, prior, normalize, ...) {
       for (i in seq_along(groups)) {
         str_add_list(out) <- stan_prior(
           prior, class = "Intercept", group = groups[i],
-          type = "real", prefix = "first_",
-          suffix = glue("{p}{gr[i]}"), px = px,
+          prefix = "first_", suffix = glue("{p}{gr[i]}"), px = px,
           comment = "first threshold", normalize = normalize
         )
         str_add_list(out) <- stan_prior(
-          prior, class = "delta", group = groups[i],
-          type = glue("real{bound}"), px = px, suffix = gr[i],
+          prior, class = "delta", group = groups[i], px = px, suffix = gr[i],
           comment = "distance between thresholds", normalize = normalize
         )
       }
@@ -552,6 +550,7 @@ stan_ordinal_lpmf <- function(family, link) {
       )
     }
   } else if (family %in% c("sratio", "cratio")) {
+    # TODO: support 'softit' link as well
     if (inv_link == "inv_cloglog") {
       qk <- str_if(
         family == "sratio",
@@ -622,7 +621,7 @@ stan_ordinal_lpmf <- function(family, link) {
         "       for (kk in 1:(k - 1)) p[k] = p[k] * q[kk];\n",
         "       for (kk in k:(nthres)) p[k] = p[k] * (1 - q[kk]);\n",
         "     }}\n",
-        "     return log(p[y] / sum(p));\n",
+        "     return log(p[y]) - log(sum(p));\n",
         "   }}\n"
       )
     }
