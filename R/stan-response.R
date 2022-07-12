@@ -688,43 +688,20 @@ copula_marginal <- function(family, link = "identity") {
     "   */\n",
     "   matrix[] {family}_{link}_marginal({function_args}){{\n",
     "    int N = rows(Mu);\n",
-    "    int J = cols(Mu);\n"
+    "    int J = cols(Mu);\n",
+    "    matrix[N, J] mu_inv_link = {inv_link}(Mu);\n",
+    "    matrix[N, J] rtn[2];\n",
+    "    for (j in 1:J) {{\n",
+    "      for (n in 1:N) {{\n",
+    "        real Ubound = {family}_lcdf(Y[n, j] | {args_indexed});\n",
+    "        real Lbound = (Y[n, j] > 0) ? {family}_lcdf(Y[n, j] - 1 | {args_indexed}) : negative_infinity();\n",
+    "        rtn[2][n, j] = log_diff_exp(Ubound, Lbound);\n",
+    "        rtn[1][n, j] = std_normal_log_qf2(log_sum_exp(Lbound, rtn[2][n, j] + log(URaw[n, j])));\n",
+    "      }}\n",
+    "    }}\n",
+    "    return rtn;\n",
+    "  }}\n"
   )
 
-  if (family == "bernoulli") {
-    str_add(out) <- glue(
-    "    matrix[N, J] matrix_y = to_matrix(Y);\n",
-    "    matrix[N, J] mu_inv_link = 1 - {inv_link}(mu_glm);\n",
-    "    matrix[N, J] Lbound = matrix_y .* mu_inv_link;\n",
-    "    matrix[N, J] UmL = fabs(matrix_y - mu_inv_link);\n",
-    "    return {{inv_Phi(Lbound + UmL .* u_raw), log(UmL)}};\n",
-    "  }}\n"
-    )
-
-    return(out)
-  }
-
-  if (family_type == "int") {
-    str_add(out) <- glue(
-      "    matrix[N, J] mu_inv_link = {inv_link}(Mu);\n",
-      "    matrix[N, J] rtn[2];\n",
-      "    for (j in 1:J) {{\n",
-      "      for (n in 1:N) {{\n",
-      "        real Ubound = {family}_lcdf(Y[n, j] | {args_indexed});\n",
-      "        real Lbound = negative_infinity();\n",
-      "        real UmL;\n",
-      "        if (Y[n, j] > 0) {{\n",
-      "          Lbound = {family}_lcdf(Y[n, j] - 1 | {args_indexed});\n",
-      "        }}\n",
-      "        UmL = log_diff_exp(Ubound, Lbound);\n",
-      "        rtn[1][n, j] = inv_Phi_log_fun(log_sum_exp(Lbound, UmL + log(URaw[n, j])));\n",
-      "        rtn[2][n, j] = UmL;\n",
-      "      }}\n",
-      "    }}\n",
-      "    return rtn;\n",
-      "  }}\n"
-    )
-
-    return(out)
-  }
+  return(out)
 }
