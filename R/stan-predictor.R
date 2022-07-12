@@ -137,7 +137,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
 
   # we already know at this point that all families are identical
   family <- family_names(x)[1]
-  # stopifnot(family %in% c("gaussian", "student"))
+  stopifnot(family %in% c("gaussian", "student") || !is.null(x$copula))
   resp <- x$responses
   nresp <- length(resp)
   if (is.null(x$copula)) {

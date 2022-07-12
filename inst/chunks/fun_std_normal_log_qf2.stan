@@ -1,4 +1,4 @@
-  real std_normal_log_qf2_scal(real log_p) {
+  real std_normal_log_qf2(real log_p) {
     real log_a[8]
         = {1.2199838032983212, 4.8914137334471356, 7.5865960847956080,
             9.5274618535358388, 10.734698580862359, 11.116406781896242,
@@ -98,18 +98,4 @@
         return -val;
     }
     return val;
-  }
-
-  matrix std_normal_log_qf2(matrix log_p_mat) {
-    int R = rows(log_p_mat);
-    int C = cols(log_p_mat);
-    matrix[R, C] rtn;
-
-    for (c in 1:C) {
-      for (r in 1:R) {
-        rtn[r, c] = std_normal_log_qf2_scal(log_p_mat[r, c]);
-      }
-    }
-
-    return rtn;
   }

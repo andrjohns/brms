@@ -1430,10 +1430,11 @@ validate_formula.mvbrmsformula <- function(
   }
   formula$rescor <- as_one_logical(formula$rescor)
   if (formula$rescor) {
-    #if (!allow_rescor) {
-    #  stop2("Currently, estimating 'rescor' is only possible ",
-    #        "in multivariate gaussian or student models.")
-    #}
+    if (!allow_rescor && is.null (formula$copula)) {
+      stop2("Currently, estimating 'rescor' is only possible ",
+            "in multivariate gaussian or student models ",
+            "or with the copula = \"gaussian\" argument")
+    }
   }
   # handle default of correlations between 'me' terms
   formula$mecor <- default_mecor(formula$mecor)
