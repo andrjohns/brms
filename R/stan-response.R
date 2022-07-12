@@ -666,19 +666,28 @@ stan_ordinal_lpmf <- function(family, link) {
 
 copula_marginal <- function(family, link = "identity") {
   family_args <- eval(parse(text = glue(".family_{family}()")))
-  family_type <- family_args$type
-  copula_args <- family_args$copula_args
+  dpars <- family_args$dpars
+  if (family_args$type == "int") {
+    function_args <- paste0("int[,] Y, matrix URaw")
+    if ("trials" %in% family_args$ad) {
+      function_args <- paste0(function_args, ", int[,] trials")
+      dpars <- c("trials", dpars)
+    }
+  } else {
+    function_args <- paste0("matrix Y")
+  }
   copula_types <- family_args$copula_types
-  if (is.null(copula_args)) {
+  if (!isTRUE(family_args$has_cdf)) {
     stop(glue("Gaussian copulas are not implemented for family {family}"))
   }
 
-  function_args <- paste(copula_types, copula_args, collapse = ", ")
+  function_args <- paste0(function_args,
+                          paste(", matrix ", family_args$dpars, collapse = ", "))
   inv_link <- stan_inv_link(link)
-  args_indexed <- copula_args[!(copula_args %in% c("Y", "URaw"))]
+  args_indexed <- dpars[!(dpars %in% c("Y", "URaw"))]
 
   args_indexed <- paste0(args_indexed, "[n, j]", collapse = ", ")
-  args_indexed <- gsub("Mu", "mu_inv_link", args_indexed)
+  args_indexed <- gsub("mu", "mu_inv_link", args_indexed)
 
   out <- glue(
     "  /* {family}-{link} marginal function for gaussian copula (discrete case)\n",
@@ -687,9 +696,9 @@ copula_marginal <- function(family, link = "identity") {
     "   *   for copula lpdf, and the second matrix contains the jacobian adjustments\n",
     "   */\n",
     "   matrix[] {family}_{link}_marginal({function_args}){{\n",
-    "    int N = rows(Mu);\n",
-    "    int J = cols(Mu);\n",
-    "    matrix[N, J] mu_inv_link = {inv_link}(Mu);\n",
+    "    int N = rows(mu);\n",
+    "    int J = cols(mu);\n",
+    "    matrix[N, J] mu_inv_link = {inv_link}(mu);\n",
     "    matrix[N, J] rtn[2];\n",
     "    for (j in 1:J) {{\n",
     "      for (n in 1:N) {{\n",

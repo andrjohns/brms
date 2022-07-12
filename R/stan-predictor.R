@@ -204,7 +204,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         pos <- pos + 1
       }
 
-      if (family == "binomial") {
+      if (has_trials(family)) {
         str_add(out$tdata_def) <- glue(
           "  int trials_{family}_{link}[N, {n_fam_resp}];  // Array of all denominators for binomials\n"
         )
@@ -226,7 +226,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
       family <- families[i]
       link <- links[i]
       str_add(out$model_def) <- glue(
-        "  matrix[N, {nresp_by_family[i]}] Mu_{family}_{link}; // Matrix of all mean/location parameters\n"
+        "  matrix[N, {nresp_by_family[i]}] mu_{family}_{link}; // Matrix of all mean/location parameters\n"
       )
     }
     for (i in 1:n_unique_combs) {
@@ -250,7 +250,7 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
         trials_ad <- ifelse(is.null(family_resp[[i]]$adforms$rate), "",
                             glue(" + log_denom_{family_resp[[i]]$resp}"))
         str_add(out$model_comp_basic) <- glue(
-          "  Mu_{family}_{link}[ : , {i}] = mu_{family_resp[[i]]$resp}{trials_ad};\n"
+          "  mu_{family}_{link}[ : , {i}] = mu_{family_resp[[i]]$resp}{trials_ad};\n"
         )
       }
     }
@@ -258,8 +258,15 @@ stan_predictor.mvbrmsterms <- function(x, prior, threads, normalize, ...) {
     for (i in 1:n_unique_combs) {
       family <- families[i]
       link <- links[i]
-      args <- eval(parse(text = glue(".family_{family}()$copula_args")))
-      args <- paste0(args, glue("_{family}_{link}"), collapse = ", ")
+      args <- "Y"
+      if (use_int(family)) {
+        args <- c(args, "URaw")
+        if(has_trials(family)) {
+          args <- c(args, "trials")
+        }
+      }
+      dpars <- eval(parse(text = glue(".family_{family}()$dpars")))
+      args <- paste0(c(args, dpars), glue("_{family}_{link}"), collapse = ", ")
       args <- gsub("sigma_gaussian_identity", "sigma", args)
       str_add(out$model_comp_basic) <- glue(
         "  {family}_{link}_marginals = {family}_{link}_marginal({args});\n"
