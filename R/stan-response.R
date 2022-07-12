@@ -676,7 +676,6 @@ copula_marginal <- function(family, link = "identity") {
   } else {
     function_args <- paste0("matrix Y")
   }
-  copula_types <- family_args$copula_types
   if (!isTRUE(family_args$has_cdf)) {
     stop(glue("Gaussian copulas are not implemented for family {family}"))
   }

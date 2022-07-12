@@ -21,7 +21,6 @@
     ad = c("weights", "subset", "se", "cens", "trunc", "mi", "index"),
     normalized = c("_time_hom", "_time_het", "_lagsar", "_errorsar", "_fcor"),
     specials = c("residuals", "rescor"),
-    copula_types = c("matrix", "matrix", "vector"),
     has_cdf = TRUE
   )
 }
@@ -59,7 +58,6 @@
     ybounds = c(0, Inf), closed = c(TRUE, NA),
     ad = c("weights", "subset", "trials", "cens", "trunc", "index"),
     specials = "sbi_logit",
-    copula_types = c("int[,]", "int[,]", "matrix", "matrix"),
     has_cdf = TRUE
   )
 }
@@ -177,8 +175,6 @@
     ybounds = c(0, Inf), closed = c(TRUE, NA),
     ad = c("weights", "subset", "cens", "trunc", "rate", "index"),
     specials = "sbi_log",
-    copula_args = c("Y", "Mu", "URaw"),
-    copula_types = c("int[,]", "matrix", "matrix"),
     has_cdf = TRUE
   )
 }
