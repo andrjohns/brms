@@ -1,14 +1,14 @@
-#' Expected Values of the Posterior Predictive Distribution
+#' Draws from the Expected Value of the Posterior Predictive Distribution
 #'
-#' Compute posterior draws of the expected value/mean of the posterior
-#' predictive distribution. Can be performed for the data used to fit the model
-#' (posterior predictive checks) or for new data. By definition, these
-#' predictions have smaller variance than the posterior predictions performed by
-#' the \code{\link{posterior_predict.brmsfit}} method. This is because only the
-#' uncertainty in the mean is incorporated in the draws computed by
-#' \code{posterior_epred} while any residual error is ignored. However, the
-#' estimated means of both methods averaged across draws should be very
-#' similar.
+#' Compute posterior draws of the expected value of the posterior predictive
+#' distribution. Can be performed for the data used to fit the model (posterior
+#' predictive checks) or for new data. By definition, these predictions have
+#' smaller variance than the posterior predictions performed by the
+#' \code{\link{posterior_predict.brmsfit}} method. This is because only the
+#' uncertainty in the expected value of the posterior predictive distribution is
+#' incorporated in the draws computed by \code{posterior_epred} while the
+#' residual error is ignored there. However, the estimated means of both methods
+#' averaged across draws should be very similar.
 #'
 #' @aliases pp_expect
 #'
@@ -18,7 +18,7 @@
 #' @param nlpar Optional name of a predicted non-linear parameter.
 #'  If specified, expected predictions of this parameters are returned.
 #'
-#' @return An \code{array} of predicted \emph{mean} response values. For
+#' @return An \code{array} of draws. For
 #'   categorical and ordinal models, the output is an S x N x C array.
 #'   Otherwise, the output is an S x N matrix, where S is the number of
 #'   posterior draws, N is the number of observations, and C is the number of
@@ -278,8 +278,8 @@ fitted.brmsfit <- function(object, newdata = NULL, re_formula = NULL,
 #' @param object An object of class \code{brmsfit}.
 #' @param transform Logical; if \code{FALSE}
 #'  (the default), draws of the linear predictor are returned.
-#'  If \code{TRUE}, draws of transformed linear predictor,
-#'  that is, after applying the link function are returned.
+#'  If \code{TRUE}, draws of the transformed linear predictor,
+#'  that is, after applying the inverse link function are returned.
 #' @param dpar Name of a predicted distributional parameter
 #'  for which draws are to be returned. By default, draws
 #'  of the main distributional parameter(s) \code{"mu"} are returned.

@@ -72,12 +72,12 @@ update.brmsfit <- function(object, formula., newdata = NULL,
   dots <- list(...)
   testmode <- isTRUE(dots[["testmode"]])
   dots$testmode <- NULL
-  silent <- dots[["silent"]]
-  if (!is.null(silent)) {
-    silent <- validate_silent(silent)
+  if ("silent" %in% names(dots)) {
+    dots$silent <- validate_silent(dots$silent)
   } else {
-    silent <- 1L
+    dots$silent <- object$stan_args$silent %||% 1L
   }
+  silent <- dots$silent
   object <- restructure(object)
   if (isTRUE(object$version$brms < "2.0.0")) {
     warning2("Updating models fitted with older versions of brms may fail.")
@@ -147,8 +147,10 @@ update.brmsfit <- function(object, formula., newdata = NULL,
     if (!is.brmsprior(dots$prior)) {
       stop2("Argument 'prior' needs to be a 'brmsprior' object.")
     }
-    # update existing priors manually
-    dots$prior <- rbind(dots$prior, object$prior)
+    # update existing priors manually and keep only user-specified ones
+    # default priors are recomputed base on newdata if provided
+    old_user_prior <- subset2(object$prior, source = "user")
+    dots$prior <- rbind(dots$prior, old_user_prior)
     dupl_priors <- duplicated(dots$prior[, rcols_prior()])
     dots$prior <- dots$prior[!dupl_priors, ]
   }
@@ -181,7 +183,10 @@ update.brmsfit <- function(object, formula., newdata = NULL,
     dots$save_pars <- object$save_pars
   }
   if (!"knots" %in% names(dots)) {
-    dots$knots <- attr(object$data, "knots")
+    dots$knots <- get_knots(object$data)
+  }
+  if (!"drop_unused_levels" %in% names(dots)) {
+    dots$drop_unused_levels <- get_drop_unused_levels(object$data)
   }
   if (!"normalize" %in% names(dots)) {
     dots$normalize <- is_normalized(object$model)
@@ -202,6 +207,9 @@ update.brmsfit <- function(object, formula., newdata = NULL,
     control <- attr(object$fit@sim$samples[[1]], "args")$control
     control <- control[setdiff(names(control), names(dots$control))]
     dots$control[names(control)] <- control
+    # reuse backend arguments originally passed to brm #1373
+    names_old_stan_args <- setdiff(names(object$stan_args), names(dots))
+    dots[names_old_stan_args] <- object$stan_args[names_old_stan_args]
   }
 
   if (is.null(recompile)) {
@@ -230,8 +238,15 @@ update.brmsfit <- function(object, formula., newdata = NULL,
       dots$formula <- NULL
     }
     bterms <- brmsterms(object$formula)
-    object$data <- validate_data(dots$data, bterms = bterms)
     object$data2 <- validate_data2(dots$data2, bterms = bterms)
+    object$data <- validate_data(
+      dots$data, bterms = bterms, data2 = object$data2,
+      knots = dots$knots, drop_unused_levels = dots$drop_unused_levels
+    )
+    object$prior <- .validate_prior(
+      dots$prior, bterms = bterms, data = object$data,
+      sample_prior = dots$sample_prior
+    )
     object$family <- get_element(object$formula, "family")
     object$autocor <- get_element(object$formula, "autocor")
     object$ranef <- tidy_ranef(bterms, data = object$data)
