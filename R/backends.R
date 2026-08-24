@@ -1051,6 +1051,14 @@ read_csv_as_stanfit <- function(files, variables = NULL, sampler_diagnostics = N
   chain_ids <- samples$.chain
   samples[res_vars] <- NULL
 
+  # keep only columns in 'model_pars'/'special_vars', dropping already-excluded
+  # variables (e.g. raw non-centered group-level parameters) that 'samples'
+  # may still contain. Otherwise 'fnames_oi' ends up out of sync with
+  # 'dims_oi'/'pars_oi', silently corrupting parameter names downstream.
+  col_base_names <- sub("\\[.*\\]$", "", colnames(samples))
+  keep_cols <- col_base_names %in% c(model_pars, special_vars)
+  samples <- samples[, keep_cols, drop = FALSE]
+
   # only add special variables to dims if there are present in samples
   # this ensures that dims_oi, pars_oi, and fnames_oi match with samples
   for (p in special_vars) {
